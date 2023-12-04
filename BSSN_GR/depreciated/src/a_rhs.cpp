@@ -1,4 +1,4 @@
-    bssn::timer::t_rhs.start();
+    // bssn::timer::t_rhs.start();
 for (unsigned int k = PW; k < nz-PW; k++) { 
     z = pmin[2] + k*hz;
 for (unsigned int j = PW; j < ny-PW; j++) { 
@@ -19,7 +19,7 @@ for (unsigned int i = PW; i < nx-PW; i++) {
 #ifdef BSSN_KERR_SCHILD_TEST
 a_rhs[pp] = 0.0;
 #else
-a_rhs[pp] = -2*K[pp]*alpha[pp] + lambda[0]*(beta0[pp]*agrad_0_alpha[pp] + beta1[pp]*agrad_1_alpha[pp] + beta2[pp]*agrad_2_alpha[pp]);
+a_rhs[pp] = -2*K[pp]*alpha[pp] + lambda[0]*(beta0[pp]*grad_0_alpha[pp] + beta1[pp]*grad_1_alpha[pp] + beta2[pp]*grad_2_alpha[pp]);
 #endif
 // Dendro: reduced ops:  12
 // Dendro: }}} 
@@ -34,4 +34,4 @@ a_rhs[pp] = -2*K[pp]*alpha[pp] + lambda[0]*(beta0[pp]*agrad_0_alpha[pp] + beta1[
   }
  }
 }
-     bssn::timer::t_rhs.stop();
+    //  bssn::timer::t_rhs.stop();

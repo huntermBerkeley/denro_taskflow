@@ -50,7 +50,17 @@ class BSSNCtx : public ts::Ctx<BSSNCtx, DendroScalar, unsigned int> {
     /**@brief: evolution var (zip)*/
     DVec m_var[VL::END];
 
+    ///> @brief
     Point m_uiBHLoc[2];
+
+    ///> @brief The number of threads that the Taskflow executor should use.
+    int m_threadsUse;
+
+    ///> @brief The factor that should be used for the derivatives.
+    int m_derivFactor;
+
+    ///> @brief The current Maximum Block size for a given chunk.
+    unsigned int m_currMaxBlockSize = 0;
 
    public:
     /**@brief: default constructor*/

@@ -51,6 +51,19 @@ NLSMCtx::~NLSMCtx() {
 }
 
 int NLSMCtx::initialize() {
+    if (!m_uiMesh->getMPIRankGlobal()) {
+        std::cout << " ========= " << std::endl;
+        std::cout << GRN << " NOW INITIALIZING RHS TASK GRAPH " << NRM
+                  << std::endl;
+    }
+    // build the graph for all processes
+    buildNLSMRHSGraph(m_uiMesh->getMPIRankGlobal());
+
+    if (!m_uiMesh->getMPIRankGlobal()) {
+        std::cout << GRN << " GRAPH INITIALIZED " << NRM << std::endl;
+        std::cout << " ========= " << std::endl;
+    }
+
     if (NLSM_RESTORE_SOLVER) {
         this->restore_checkpt();
         return 0;
@@ -140,6 +153,162 @@ int NLSMCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
                        nlsm::NLSM_COMPD_MAX[2]);
     const unsigned int PW = nlsm::NLSM_PADDING_WIDTH;
 
+#ifdef NLSM_RHS_TASKFLOW_PARALLELIZED
+    tf::Taskflow taskflow("taskflow processing rhs blocks");
+    char* executorThreads = std::getenv("DENDRO_TF_EXECUTOR_THREADS");
+    int threadsUse = executorThreads == NULL
+                         ? std::thread::hardware_concurrency()
+                         : atoi(executorThreads);
+
+    tf::Executor executor(threadsUse);
+    // tf::Executor executor;
+
+    // maximum parallelism of the pipeline
+    const size_t num_lines = 4;
+    // this is for the number of total pipes that we have available
+    const size_t num_pipes = 3;
+
+    std::array<tf::Taskflow, num_pipes> taskflows;
+
+    // we need to build up the objects that contain everything needed in the
+    // blocks
+    std::vector<tfdendro::dendrotf_rhs_data> rhsdata;
+
+    for (int blk = 0; blk < numBlocks; blk++) {
+        tfdendro::dendrotf_rhs_data temp_block;
+        lsz[0] = blkList[blk].getAllocationSzX();
+        lsz[1] = blkList[blk].getAllocationSzY();
+        lsz[2] = blkList[blk].getAllocationSzZ();
+        ptmin[0] = GRIDX_TO_X(blkList[blk].getBlockNode().minX()) - PW * dx;
+        ptmin[1] = GRIDY_TO_Y(blkList[blk].getBlockNode().minY()) - PW * dy;
+        ptmin[2] = GRIDZ_TO_Z(blkList[blk].getBlockNode().minZ()) - PW * dz;
+
+        ptmax[0] = GRIDX_TO_X(blkList[blk].getBlockNode().maxX()) + PW * dx;
+        ptmax[1] = GRIDY_TO_Y(blkList[blk].getBlockNode().maxY()) + PW * dy;
+        ptmax[2] = GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ()) + PW * dz;
+        offset = blkList[blk].getOffset();
+
+        temp_block.chi = (double*)&unzipIn[VAR::U_CHI][offset];
+        temp_block.phi = (double*)&unzipIn[VAR::U_PHI][offset];
+        temp_block.chi_rhs = (double*)&unzipOut[VAR::U_CHI][offset];
+        temp_block.phi_rhs = (double*)&unzipOut[VAR::U_PHI][offset];
+
+        temp_block.nx = lsz[0];
+        temp_block.ny = lsz[1];
+        temp_block.nz = lsz[2];
+
+        temp_block.hx = (ptmax[0] - ptmin[0]) / (temp_block.nx - 1);
+        temp_block.hy = (ptmax[1] - ptmin[1]) / (temp_block.ny - 1);
+        temp_block.hz = (ptmax[2] - ptmin[2]) / (temp_block.nz - 1);
+
+        temp_block.n = lsz[0] * lsz[1] * lsz[2];
+        temp_block.PW = nlsm::NLSM_PADDING_WIDTH;
+
+        temp_block.BLK_SZ = temp_block.n;
+
+        temp_block.sigma = KO_DISS_SIGMA;
+
+        temp_block.bflag = blkList[blk].getBlkNodeFlag();
+
+        // these ones will be a problem, should probably recalculate sz when
+        // needed elsewhere or make an array
+        temp_block.pmin = (double*)ptmin;
+        temp_block.pmax = (double*)ptmax;
+
+        // TODO: this needs to be addressed sooner than later... this could blow
+        // up on some machines if there's no distribution here..............
+        temp_block.grad_0_chi = new double[temp_block.n];
+        temp_block.grad_1_chi = new double[temp_block.n];
+        temp_block.grad_2_chi = new double[temp_block.n];
+        temp_block.grad_0_phi = new double[temp_block.n];
+        temp_block.grad_1_phi = new double[temp_block.n];
+        temp_block.grad_2_phi = new double[temp_block.n];
+        temp_block.grad2_0_0_chi = new double[temp_block.n];
+        temp_block.grad2_1_1_chi = new double[temp_block.n];
+        temp_block.grad2_2_2_chi = new double[temp_block.n];
+        // need to delete when finished
+
+        rhsdata.push_back(temp_block);
+    }
+
+    // then generate the taskflows based on the different pieces
+    make_deriv_computation_taskflow(taskflows[0]);
+    make_rhs_computation_taskflow(
+        taskflows[1]);  // includes boundary conditions
+    make_kodiss_computation_taskflow(taskflows[2]);
+
+    int i = 0;
+    int N = 0;
+
+    // TODO:
+    std::cout << "Num blocks is " << numBlocks << std::endl;
+
+    tf::Pipeline pl(
+        2,
+        // first pipe handles the nitial scheduling, because the
+        // first needs to be serial
+        tf::Pipe{tf::PipeType::SERIAL,
+                 [&](tf::Pipeflow& pf) {
+                     // stop the pipe generation if we have hit the
+                     // number of blocks
+                     std::cout << "processing for token " << pf.token()
+                               << std::endl;
+                     if (pf.token() == numBlocks) {
+                         pf.stop();
+                     }
+                 }},
+        // first pipe here will calculate the derivatives
+        tf::Pipe{tf::PipeType::PARALLEL,
+                 [&](tf::Pipeflow& pf) {
+                     // grab the data for this pipe
+                     auto thisData = rhsdata[pf.token() - 1];
+
+                     // duplicate the task since we need to modify
+                     // the data...
+                     //  auto thisTaskFlow = taskflows[pf.pipe()];
+
+                     // assign the data
+                     taskflows[pf.pipe() - 1].for_each_task(
+                         [&thisData, &pf](tf::Task task) {
+                             std::cout << pf.token()
+                                       << " token assigning data to task "
+                                       << task.name() << std::endl;
+                             task.data(&thisData);
+                         });
+
+                     // run this task flow
+                     executor.corun(taskflows[pf.pipe() - 1]);
+
+                     std::cout << "FINISHED " << pf.token() << std::endl;
+                 }},
+        // this second pipe will go ahead and run RHS computation
+        // tf::Pipe{tf::PipeType::PARALLEL,
+        //          [&](tf::Pipeflow& pf) {
+        //              executor.corun(taskflows[pf.pipe()]);
+        //          }},
+        // this third pipe will go ahead and do the KO diss step
+        // final pipe is just a "finish up"
+        tf::Pipe{tf::PipeType::SERIAL, [&](tf::Pipeflow& pf) { return; }});
+
+    tf::Task pipeline = taskflow.composed_of(pl);
+
+    if (!m_uiMesh->getMPIRank()) taskflow.dump(std::cout);
+
+    executor.run(taskflow).wait();
+
+    // once finished clean up the gradient arrays
+    for (int blk = 0; blk < numBlocks; blk++) {
+        delete[] rhsdata[blk].grad_0_chi;
+        delete[] rhsdata[blk].grad_1_chi;
+        delete[] rhsdata[blk].grad_2_chi;
+        delete[] rhsdata[blk].grad_0_phi;
+        delete[] rhsdata[blk].grad_1_phi;
+        delete[] rhsdata[blk].grad_2_phi;
+        delete[] rhsdata[blk].grad2_0_0_chi;
+        delete[] rhsdata[blk].grad2_1_1_chi;
+        delete[] rhsdata[blk].grad2_2_2_chi;
+    }
+#else
     for (unsigned int blk = 0; blk < numBlocks; blk++) {
         offset = blkList[blk].getOffset();
         lsz[0] = blkList[blk].getAllocationSzX();
@@ -164,8 +333,11 @@ int NLSMCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
         m_uiCtxpt[ts::CTXPROFILE::RHS].start();
 #endif
 
-        nlsmRhs(unzipOut, (const DendroScalar**)unzipIn, offset, ptmin, ptmax,
-                lsz, bflag);
+        // nlsmRhs(unzipOut,(const DendroScalar**)unzipIn, offset, ptmin, ptmax,
+        // lsz, bflag); nlsmRHSTaskflowEntryBUILDONENTRY(unzipOut,(const
+        // DendroScalar**)unzipIn, offset, ptmin, ptmax, lsz, bflag);
+        nlsmRHSTaskflowFromPrebuilt(unzipOut, (const DendroScalar**)unzipIn,
+                                    offset, ptmin, ptmax, lsz, bflag);
 
         // std::cout<<":::\n";
         // for(unsigned int n=0; n < lsz[0]*lsz[1]*lsz[2]; n++)
@@ -175,6 +347,7 @@ int NLSMCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
         m_uiCtxpt[ts::CTXPROFILE::RHS].stop();
 #endif
     }
+#endif
 
     this->zip(m_evar_unzip[1], out[0]);
 
@@ -236,8 +409,15 @@ int NLSMCtx::rhs_blk(const DendroScalar* in, DendroScalar* out,
     ptmax[2] = GRIDZ_TO_Z(blkList[blk].getBlockNode().maxZ()) + PW * dz;
 
     // note that the offset zero is important since it is the block vector.
-    nlsmRhs(unzipOut, (const DendroScalar**)unzipIn, 0, ptmin, ptmax, lsz,
-            bflag);
+    // nlsmRhs(unzipOut, (const DendroScalar**)unzipIn, 0, ptmin, ptmax, lsz,
+    //         bflag);
+    //
+    // nlsmRHSTaskflowEntryBUILDONENTRY(unzipOut, (const DendroScalar**)unzipIn,
+    // 0,
+    //                                  ptmin, ptmax, lsz, bflag);
+
+    nlsmRHSTaskflowFromPrebuilt(unzipOut, (const DendroScalar**)unzipIn, 0,
+                                ptmin, ptmax, lsz, bflag);
 
     // for(unsigned int v =0; v < dof; v++)
     // {

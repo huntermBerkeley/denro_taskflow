@@ -685,7 +685,7 @@ void RK_BSSN::performSingleIteration()
         if(m_uiRKType==RKType::RK3)
         {   
             // initial unzip and ghost exchange happens at the rkSolve class.  
-            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size());
+            bssnRHS(m_uiUnzipVarRHS,(const DendroScalar **)m_uiUnzipVar,&(*(blkList.begin())),blkList.size(), 0);
             zipVars(m_uiUnzipVarRHS,m_uiStage[0]);
                         
             for(unsigned int node=nodeLocalBegin; node<nodeLocalEnd; node++)

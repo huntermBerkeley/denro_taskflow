@@ -45,7 +45,7 @@ endif()
 # include/nlsmInvCtx.h )
 
 set(NLSM_SRC src/parameters.cpp src/nlsmUtils.cpp src/rhs.cpp src/derivs.cpp
-             src/profile_params.cpp)
+             src/profile_params.cpp src/rhs_taskflow.cpp)
 
 set(SOURCE_FILES src/nlsm.cpp src/rk4nlsm.cpp ${NLSM_SRC})
 add_executable(nlsmSolver ${SOURCE_FILES})
@@ -74,7 +74,7 @@ if(WITH_CUDA)
 endif()
 target_link_libraries(nlsmSolver dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} m)
 
-set(SOURCE_FILES src/nlsm_nuts.cpp src/nlsmCtx.cpp ${NLSM_SRC})
+set(SOURCE_FILES src/nlsm_nuts.cpp src/rhs_taskflow.cpp src/nlsmCtx.cpp ${NLSM_SRC})
 add_executable(nlsmSolverNUTS ${SOURCE_FILES})
 target_include_directories(nlsmSolverNUTS
                            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)

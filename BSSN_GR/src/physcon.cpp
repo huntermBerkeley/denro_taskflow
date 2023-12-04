@@ -12,7 +12,9 @@ using namespace bssn;
 void physical_constraints(double **uZipConVars, const double **uZipVars,
                           const unsigned int &offset, const double *pmin,
                           const double *pmax, const unsigned int *sz,
-                          const unsigned int &bflag) {
+                          const unsigned int &bflag,
+                          const unsigned int threadID,
+                          const unsigned int maxBlockSize) {
     const unsigned int nx = sz[0];
     const unsigned int ny = sz[1];
     const unsigned int nz = sz[2];

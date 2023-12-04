@@ -236,7 +236,8 @@ ot::Mesh* weakScalingReMesh(ot::Mesh* pMesh, unsigned int target_npes);
  *
  * @param pMesh
  */
-void allocate_bssn_deriv_workspace(const ot::Mesh* pMesh, unsigned int s_fac);
+unsigned int allocate_bssn_deriv_workspace(const ot::Mesh* pMesh,
+                                           unsigned int s_fac);
 
 /**@brief deallocates the bssn derivs var space*/
 void deallocate_bssn_deriv_workspace();

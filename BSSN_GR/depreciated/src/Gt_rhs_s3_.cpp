@@ -1,4 +1,4 @@
-    bssn::timer::t_rhs.start();
+    // bssn::timer::t_rhs.start();
 for (unsigned int k = PW; k < nz-PW; k++) { 
     z = pmin[2] + k*hz;
 for (unsigned int j = PW; j < ny-PW; j++) { 
@@ -35,4 +35,4 @@ Gt_rhs_s3_2[pp] = CalGt2[pp]*DENDRO_0;
   }
  }
 }
-     bssn::timer::t_rhs.stop();
+    //  bssn::timer::t_rhs.stop();

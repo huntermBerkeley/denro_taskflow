@@ -1,4 +1,4 @@
-    bssn::timer::t_rhs.start();
+    // bssn::timer::t_rhs.start();
 for (unsigned int k = PW; k < nz-PW; k++) { 
     z = pmin[2] + k*hz;
 for (unsigned int j = PW; j < ny-PW; j++) { 
@@ -16,11 +16,11 @@ for (unsigned int i = PW; i < nx-PW; i++) {
 // Dendro: printing temp variables
 // Dendro: printing variables
 //--
-Gt_rhs_s1_0[pp] = beta0[pp]*agrad_0_Gt0[pp] + beta1[pp]*agrad_1_Gt0[pp] + beta2[pp]*agrad_2_Gt0[pp];
+Gt_rhs_s1_0[pp] = beta0[pp]*grad_0_Gt0[pp] + beta1[pp]*grad_1_Gt0[pp] + beta2[pp]*grad_2_Gt0[pp];
 //--
-Gt_rhs_s1_1[pp] = beta0[pp]*agrad_0_Gt1[pp] + beta1[pp]*agrad_1_Gt1[pp] + beta2[pp]*agrad_2_Gt1[pp];
+Gt_rhs_s1_1[pp] = beta0[pp]*grad_0_Gt1[pp] + beta1[pp]*grad_1_Gt1[pp] + beta2[pp]*grad_2_Gt1[pp];
 //--
-Gt_rhs_s1_2[pp] = beta0[pp]*agrad_0_Gt2[pp] + beta1[pp]*agrad_1_Gt2[pp] + beta2[pp]*agrad_2_Gt2[pp];
+Gt_rhs_s1_2[pp] = beta0[pp]*grad_0_Gt2[pp] + beta1[pp]*grad_1_Gt2[pp] + beta2[pp]*grad_2_Gt2[pp];
 // Dendro: reduced ops:  24
 // Dendro: }}} 
      /* debugging */
@@ -34,4 +34,4 @@ Gt_rhs_s1_2[pp] = beta0[pp]*agrad_0_Gt2[pp] + beta1[pp]*agrad_1_Gt2[pp] + beta2[
   }
  }
 }
-     bssn::timer::t_rhs.stop();
+    //  bssn::timer::t_rhs.stop();

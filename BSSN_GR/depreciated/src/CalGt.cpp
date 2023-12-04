@@ -1,4 +1,4 @@
-    bssn::timer::t_rhs.start();
+    // bssn::timer::t_rhs.start();
 for (unsigned int k = PW; k < nz-PW; k++) { 
     z = pmin[2] + k*hz;
 for (unsigned int j = PW; j < ny-PW; j++) { 
@@ -71,4 +71,4 @@ CalGt2[pp] = DENDRO_5*(-DENDRO_11*(-DENDRO_23*DENDRO_35 - DENDRO_25*DENDRO_33 + 
   }
  }
 }
-     bssn::timer::t_rhs.stop();
+    //  bssn::timer::t_rhs.stop();

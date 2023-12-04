@@ -2378,7 +2378,8 @@ ot::Mesh* weakScalingReMesh(ot::Mesh* pMesh, unsigned int target_npes) {
     return current_mesh;
 }
 
-void allocate_bssn_deriv_workspace(const ot::Mesh* pMesh, unsigned int s_fac) {
+unsigned int allocate_bssn_deriv_workspace(const ot::Mesh* pMesh,
+                                           unsigned int s_fac) {
     deallocate_bssn_deriv_workspace();
 
     if (!pMesh->isActive()) return;
@@ -2400,6 +2401,17 @@ void allocate_bssn_deriv_workspace(const ot::Mesh* pMesh, unsigned int s_fac) {
 
     bssn::BSSN_DERIV_WORKSPACE =
         new double[s_fac * max_blk_sz * bssn::BSSN_NUM_DERIVS];
+
+#if 0
+    std::cout << "Max block size is: " << max_blk_sz << std::endl;
+    std::cout << "original block data: " << max_blk_sz * bssn::BSSN_NUM_DERIVS
+        << std::endl;
+    std::cout << "updated block data: "
+        << s_fac * max_blk_sz * bssn::BSSN_NUM_DERIVS << std::endl;
+#endif
+
+    // end by returning the max block size!
+    return max_blk_sz;
 }
 
 void deallocate_bssn_deriv_workspace() {

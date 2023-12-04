@@ -1668,7 +1668,7 @@ namespace nlsm
                  "isRemesh_min\t isRemesh_mean\t isRemesh_max\t"<<\
                  "GT_min\t GT_mean\t GT_max\t"<<\
                  "deriv_min\t deriv_mean\t deriv_max\t"<<\
-                 "rhs_min\t rhs_mean\t rhs_max\t"<<std::endl;
+                 "rhs_min\t rhs_mean\t rhs_max\t rhs_a_min\t rhs_a_mean\t rhs_a_max"<<std::endl;
 
             }
 
@@ -1765,6 +1765,11 @@ namespace nlsm
             if(!rank) outfile<<t_stat_g[0]<<"\t "<<t_stat_g[1]<<"\t "<<t_stat_g[2]<<"\t ";
 
             t_stat=t_rhs.snap;
+            computeOverallStats(&t_stat,t_stat_g,comm);
+            if(!rank) outfile<<t_stat_g[0]<<"\t "<<t_stat_g[1]<<"\t "<<t_stat_g[2]<<"\t ";
+
+
+            t_stat=t_rhs_a.snap;
             computeOverallStats(&t_stat,t_stat_g,comm);
             if(!rank) outfile<<t_stat_g[0]<<"\t "<<t_stat_g[1]<<"\t "<<t_stat_g[2]<<"\t ";
 

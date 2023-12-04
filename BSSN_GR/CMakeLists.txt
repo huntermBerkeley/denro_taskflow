@@ -32,6 +32,14 @@ option(BSSN_USE_8TH_ORDER_DERIVS "use 8th order derivs" OFF)
 option(BSSN_ENABLE_AVX "use vectorized computation for RHS (intel compilers only)" OFF)
 option(BSSN_VERBOSE_LOGGING "Enable more verbose logging (only useful during debug)" OFF)
 
+option(BSSN_USE_GRAPH_COARSENING "Swap out RHS computation for graph coarsened values" OFF)
+
+option(BSSN_RHS_STAGED_COMP "Enable staged computations of the BSSN RHS" OFF)
+option(BSSN_ENABLE_PROFILING "enable the profiling of various pieces" ON)
+
+if(BSSN_ENABLE_PROFILING)
+    add_definitions(-DBSSN_ENABLE_PROFILING)
+endif(BSSN_ENABLE_PROFILING)
 
 if(BSSN_ENABLE_AVX)
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
@@ -119,6 +127,14 @@ if(BSSN_VERBOSE_LOGGING)
     add_definitions(-DBSSN_VERBOSE_LOGGING)
 endif()
 
+if(BSSN_USE_GRAPH_COARSENING)
+    add_definitions(-DUSE_GRAPH_COARSENING)
+endif()
+
+if(BSSN_RHS_STAGED_COMP)
+    add_definitions(-DBSSN_RHS_STAGED_COMP)
+endif()
+
 
 #message(${KWAY})
 
@@ -146,44 +162,44 @@ endif()
 #         DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/gwExtract.h
 # )
 
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
-    COMMENT "generating bssn code unstaged standard gauge with constant eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
-    COMMENT "generating bssn code unstaged standard gauge with varying (large mass ratios) eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
-    COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
-    DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
-    COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
-    VERBATIM USES_TERMINAL
-)
-
+# NOTE: this was all disabled because there's no reason to rebuild every time we clone the repository or set up build tools
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
+#     COMMENT "generating bssn code unstaged standard gauge with constant eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged standard func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_standard_gauge.cpp
+#     COMMENT "generating bssn code unstaged standard gauge with varying (large mass ratios) eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+#
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester const . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_rochester_gauge.cpp
+#     COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
+# add_custom_command(
+#     OUTPUT  ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/dendro.py 
+#     DEPENDS ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py 
+#     COMMAND python3 ${CMAKE_SOURCE_DIR}/CodeGen/bssn.py unstaged rochester func . > ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_func_rochester_gauge.cpp
+#     COMMENT "generating bssn code unstaged rochester gauge with constant eta damping (during intial compilation this might take a while. )"
+#     VERBATIM USES_TERMINAL
+# )
+#
 
 add_custom_target(BSSN_CODEGEN
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/bssneqs_eta_const_standard_gauge.cpp
@@ -395,7 +411,7 @@ if(WITH_CUDA)
 endif()
 target_link_libraries(bssnSolver dendro5 ${LAPACK_LIBRARIES} ${MPI_LIBRARIES} ${GSL_LIBRARIES} m dendro_git_version_and_date)
 
-add_executable(bssnSolverCtx src/bssngr_main.cpp src/bssnCtx.cpp)
+add_executable(bssnSolverCtx src/bssngr_main.cpp src/bssnCtx.cpp src/rhs_taskflow.cpp)
 target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/include)
 target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/GPU/include)
 target_include_directories(bssnSolverCtx PRIVATE ${CMAKE_SOURCE_DIR}/dendrolib/test/include)

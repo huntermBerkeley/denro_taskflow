@@ -378,7 +378,33 @@ bssn:
 
             if ((step % bssn::BSSN_CHECKPT_FREQ) == 0) bssnCtx->write_checkpt();
 
+                // NOTE: for some profiling, it might be worthwhile to enable
+                // this barrier and start the timer
+#if 0
+            MPI_Barrier(comm);
+            if (!rank) bssn::timer::t_rkStep.start();
+#endif
+
+            // ACTUAL evolution step!
             ets->evolve();
+
+// NOTE: this profiling can be enabled if desired
+// wait until everyone gets here
+#if 0
+            MPI_Barrier(comm);
+            if (!rank) {
+                bssn::timer::t_rkStep.stop();
+                std::cout << "To do full step:     "
+                          << bssn::timer::t_rkStep.seconds << std::endl;
+                bssn::timer::t_rkStep.clear();
+            }
+            // TEMP: this is a temporary measure to just run a few steps!
+            if ((step == 4)) {
+                // kill the run
+                std::cout << "Ending the run early!" << std::endl;
+                break;
+            }
+#endif
         }
 
 #if defined __PROFILE_CTX__ && defined __PROFILE_ETS__

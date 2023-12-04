@@ -288,8 +288,10 @@ int main (int argc, char** argv)
 
             }
                     
-            if((step % nlsm::NLSM_IO_OUTPUT_FREQ) == 0 )
+            if((step % nlsm::NLSM_IO_OUTPUT_FREQ) == 0 ) {
+             nlsm::timer::profileInfoIntermediate(nlsm::NLSM_PROFILE_FILE_PREFIX.c_str(),appCtx->get_mesh(),step);
              appCtx -> write_vtu();   
+            }
 
             if( (step % nlsm::NLSM_CHECKPT_FREQ) == 0 )
             appCtx -> write_checkpt();

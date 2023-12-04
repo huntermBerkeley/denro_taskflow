@@ -41,6 +41,9 @@ profiler_t t_rhs_B;
 
 profiler_t t_bdyc;
 
+profiler_t t_rhs_chunk_wait;
+profiler_t t_rhs_tf_executor;
+
 profiler_t t_zip;
 profiler_t t_rkStep;
 

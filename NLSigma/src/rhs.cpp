@@ -43,16 +43,18 @@ void nlsmRhs(double **unzipVarsRHS, const double **uZipVars,
     double *grad2_1_1_chi = new double[n];
     double *grad2_2_2_chi = new double[n];
 
+    nlsm::timer::t_rhs.start();
+
     deriv_xx(grad2_0_0_chi, chi, hx, sz, bflag);
     deriv_yy(grad2_1_1_chi, chi, hy, sz, bflag);
     deriv_zz(grad2_2_2_chi, chi, hz, sz, bflag);
 
     nlsm::timer::t_deriv.stop();
 
-    register double x;
-    register double y;
-    register double z;
-    register unsigned int pp;
+    DendroRegister double x;
+    DendroRegister double y;
+    DendroRegister double z;
+    DendroRegister unsigned int pp;
 
     double r;
     double eta;
@@ -70,7 +72,7 @@ void nlsmRhs(double **unzipVarsRHS, const double **uZipVars,
                 pp = i + nx * (j + ny * k);
                 r = sqrt(x * x + y * y + z * z);
 
-                nlsm::timer::t_rhs.start();
+                // nlsm::timer::t_rhs.start();
 #ifdef NLSM_NONLINEAR
                 if (r > 1.0e-6) {
                     phi_rhs[pp] = NLSM_WAVE_SPEED_X * grad2_0_0_chi[pp] +
@@ -88,7 +90,7 @@ void nlsmRhs(double **unzipVarsRHS, const double **uZipVars,
                               NLSM_WAVE_SPEED_Z * grad2_2_2_chi[pp];
                 chi_rhs[pp] = phi[pp];
 #endif
-                nlsm::timer::t_rhs.stop();
+                // nlsm::timer::t_rhs.stop();
             }
         }
     }
@@ -121,7 +123,7 @@ void nlsmRhs(double **unzipVarsRHS, const double **uZipVars,
     ko_deriv_z(grad_2_phi, phi, hz, sz, bflag);
     nlsm::timer::t_deriv.stop();
 
-    nlsm::timer::t_rhs.start();
+    // nlsm::timer::t_rhs.start();
 
     const double sigma = KO_DISS_SIGMA;
 
@@ -138,6 +140,9 @@ void nlsmRhs(double **unzipVarsRHS, const double **uZipVars,
         }
     }
 
+    // nlsm::timer::t_rhs.stop();
+
+    // matches the one at the very top
     nlsm::timer::t_rhs.stop();
 
     nlsm::timer::t_deriv.start();

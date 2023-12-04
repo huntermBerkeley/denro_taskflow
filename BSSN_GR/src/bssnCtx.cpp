@@ -45,8 +45,18 @@ BSSNCtx::BSSNCtx(ot::Mesh* pMesh) : Ctx() {
     m_uiMaxPt = Point(bssn::BSSN_GRID_MAX_X, bssn::BSSN_GRID_MAX_Y,
                       bssn::BSSN_GRID_MAX_Z);
 
+    // set up the number of threads that we will want the executor to use
+    // TODO: precompute this and store it somewhere, it comes from env variable
+    char* executorThreads = std::getenv("DENDRO_TF_EXECUTOR_THREADS");
+    m_threadsUse = executorThreads == NULL ? std::thread::hardware_concurrency()
+                                           : atoi(executorThreads);
+
+    char* derivSize = std::getenv("DENDRO_TF_DERIV_FACTOR");
+
+    m_threadsUse = derivSize == NULL ? 1 : atoi(derivSize);
+
     deallocate_bssn_deriv_workspace();
-    allocate_bssn_deriv_workspace(m_uiMesh, 1);
+    m_currMaxBlockSize = allocate_bssn_deriv_workspace(m_uiMesh, m_threadsUse);
 
     ot::dealloc_mpi_ctx<DendroScalar>(m_uiMesh, m_mpi_ctx, BSSN_NUM_VARS,
                                       BSSN_ASYNC_COMM_K);
@@ -65,6 +75,9 @@ BSSNCtx::~BSSNCtx() {
 }
 
 int BSSNCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
+#ifdef ENABLE_RHS_PROFILER_BLOCK
+    nlsm::timer::t_rhs.start();
+#endif
     // all the variables should be packed together.
     // assert(sz==1);
     // DendroScalar * sVar[BSSN_NUM_VARS];
@@ -85,13 +98,18 @@ int BSSNCtx::rhs(DVec* in, DVec* out, unsigned int sz, DendroScalar time) {
     const ot::Block* blkList = m_uiMesh->getLocalBlockList().data();
     const unsigned int numBlocks = m_uiMesh->getLocalBlockList().size();
 
-    bssnRHS(unzipOut, (const DendroScalar**)unzipIn, blkList, numBlocks);
+    bssnRHS(unzipOut, (const DendroScalar**)unzipIn, blkList, numBlocks,
+            m_currMaxBlockSize);
 
 #ifdef __PROFILE_CTX__
     this->m_uiCtxpt[ts::CTXPROFILE::RHS].stop();
 #endif
 
     this->zip(m_var[CPU_EV_UZ_OUT], *out);
+
+#ifdef ENABLE_RHS_PROFILER_BLOCK
+    nlsm::timer::t_rhs.stop();
+#endif
 
     return 0;
 }
@@ -338,6 +356,21 @@ int BSSNCtx::post_timestep_blk(DendroScalar* in, unsigned int dof,
 #endif
 
 int BSSNCtx::initialize() {
+    // TASKFLOW: initializing the graph for the full RHS
+    // initialize the taskflow graph stuff
+    // if (!m_uiMesh->getMPIRankGlobal()) {
+    //     std::cout << " ========= " << std::endl;
+    //     std::cout << GRN << " NOW INITIALIZING RHS TASK GRAPH " << NRM
+    //               << std::endl;
+    // }
+    // // build the graph for all processes
+    // generateFullRHSGraph(m_uiMesh->getMPIRankGlobal());
+
+    // if (!m_uiMesh->getMPIRankGlobal()) {
+    //     std::cout << GRN << " GRAPH INITIALIZED " << NRM << std::endl;
+    //     std::cout << " ========= " << std::endl;
+    // }
+
     if (bssn::BSSN_RESTORE_SOLVER) {
         this->restore_checkpt();
         return 0;
@@ -446,9 +479,17 @@ int BSSNCtx::initialize() {
 
     this->init_grid();
 
+    if (!m_uiMesh->getMPIRankGlobal()) {
+        std::cout << "[bssnCtx] " << CYN << " grid initialized!" << NRM
+                  << std::endl;
+    }
+
+    // std::cout << "global rank: " << m_uiMesh->getMPIRankGlobal() <<
+    // std::endl;
+
     // // realloc bssn deriv space
     deallocate_bssn_deriv_workspace();
-    allocate_bssn_deriv_workspace(m_uiMesh, 1);
+    m_currMaxBlockSize = allocate_bssn_deriv_workspace(m_uiMesh, m_threadsUse);
 
     unsigned int lmin, lmax;
     m_uiMesh->computeMinMaxLevel(lmin, lmax);
