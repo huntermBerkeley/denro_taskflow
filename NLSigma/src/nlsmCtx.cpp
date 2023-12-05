@@ -1,6 +1,6 @@
 #include "nlsmCtx.h"
 
-#include "../lib/taskflow/algorithm/pipeline.hpp"
+#include "../../lib/taskflow/algorithm/pipeline.hpp"
 
 #define NLSM_RHS_TASKFLOW_PARALLELIZED
 

@@ -6,7 +6,7 @@
 #include <cmath>
 #include <iostream>
 
-#include "../lib/taskflow/taskflow.hpp"
+#include "../../lib/taskflow/taskflow.hpp"
 #include "derivs.h"
 #include "mathUtils.h"
 #include "nlsmUtils.h"
