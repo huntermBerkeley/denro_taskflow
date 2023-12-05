@@ -2382,7 +2382,7 @@ unsigned int allocate_bssn_deriv_workspace(const ot::Mesh* pMesh,
                                            unsigned int s_fac) {
     deallocate_bssn_deriv_workspace();
 
-    if (!pMesh->isActive()) return;
+    if (!pMesh->isActive()) return 0;
 
     // gets the largest block size.
     const std::vector<ot::Block>& blkList = pMesh->getLocalBlockList();
