@@ -2,7 +2,14 @@
 #include <thread>
 
 #include "../../lib/taskflow/taskflow.hpp"
+#include "../../lib/taskflow/algorithm/for_each.hpp"
 #include "rhs.h"
+
+#define FOREACH_LOOPS 0
+
+#if FOREACH_LOOPS
+#include <ranges>
+#endif
 
 using namespace std;
 using namespace nlsm;
@@ -20,39 +27,79 @@ tf::Taskflow nlsmTasks;
 dendrotf_rhs_data data;
 }  // namespace tfdendro
 
+
+
+#define FUSED_CHI_XX_DERIV 1
+
+#define FUSED_CHI_X_DERIV 1
+
+#define FUSED_PHI_X_DERIV 1
+
+#define FUSED_CHI_KO_DERIV 1
+
+#define FUSED_PHI_KO_DERIV 1
+
+
+
 void make_deriv_computation_taskflow(tf::Taskflow &tf) {
+
+
+
+    #if FUSED_CHI_XX_DERIV
+
+        auto fused_derivative = tf.placeholder().name("fused deriv");
+
+        fused_derivative.work([fused_derivative](){
+
+        auto data = *static_cast<tfdendro::dendrotf_rhs_data *>(fused_derivative.data());
+            
+        unsigned int sz[3] = {data.nx, data.ny, data.nz};
+
+        deriv_xx(data.grad2_0_0_chi, data.chi, data.hx, sz, data.bflag);
+        deriv_yy(data.grad2_1_1_chi, data.chi, data.hy, sz, data.bflag);
+        deriv_zz(data.grad2_2_2_chi, data.chi, data.hz, sz, data.bflag);
+
+        //std::cout << "finished with derivatives" << std::endl;
+
+        });
+
+    #else
+
     auto chi_xx_deriv = tf.placeholder().name("chi xx deriv");
     auto chi_yy_deriv = tf.placeholder().name("chi yy deriv");
     auto chi_zz_deriv = tf.placeholder().name("chi zz deriv");
 
     chi_xx_deriv.work([chi_xx_deriv]() {
-        std::cout << "in chi_xx_deriv, data pointer is " << chi_xx_deriv.data() << std::endl;
+        //std::cout << "in chi_xx_deriv, data pointer is " << chi_xx_deriv.data() << std::endl;
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_xx_deriv.data());
 
         unsigned int sz[3] = {d.nx, d.ny, d.nz};
         
         deriv_xx(d.grad2_0_0_chi, d.chi, d.hx, sz, d.bflag);
-        std::cout << "finished chi_xx_deriv" << std::endl;
+        //std::cout << "finished chi_xx_deriv" << std::endl;
     });
     chi_yy_deriv.work([chi_yy_deriv]() {
-        std::cout << "in chi_yy_deriv" << std::endl;
+        //std::cout << "in chi_yy_deriv" << std::endl;
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_yy_deriv.data());
 
         unsigned int sz[3] = {d.nx, d.ny, d.nz};
         deriv_yy(d.grad2_1_1_chi, d.chi, d.hy, sz, d.bflag);
-        std::cout << "finished chi_yy_deriv" << std::endl;
+        //std::cout << "finished chi_yy_deriv" << std::endl;
     });
     chi_zz_deriv.work([chi_zz_deriv]() {
-        std::cout << "in chi_zz_deriv" << std::endl;
+        //std::cout << "in chi_zz_deriv" << std::endl;
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_zz_deriv.data());
 
         unsigned int sz[3] = {d.nx, d.ny, d.nz};
         deriv_zz(d.grad2_2_2_chi, d.chi, d.hz, sz, d.bflag);
-        std::cout << "finished chi_zz_deriv" << std::endl;
+        //std::cout << "finished chi_zz_deriv" << std::endl;
     });
+
+
+    #endif
 }
 
 void make_rhs_computation_taskflow(tf::Taskflow &tf) {
@@ -134,32 +181,55 @@ void make_kodiss_computation_taskflow(tf::Taskflow &tf){
 }
 
 void buildNLSMRHSGraph(int mpiRank) {
+
+
+    #if FUSED_CHI_XX_DERIV
+
+
+    auto fused_derivative = tfdendro::nlsmTasks.placeholder().name("fused deriv");
+
+    fused_derivative.data(&tfdendro::data).work([fused_derivative](){
+
+        //std::cout << "in fused_deriv" << std::endl;
+        auto d =
+            *static_cast<tfdendro::dendrotf_rhs_data *>(fused_derivative.data());
+        deriv_xx(d.grad2_0_0_chi, d.chi, d.hx, d.sz, d.bflag);
+        deriv_yy(d.grad2_1_1_chi, d.chi, d.hy, d.sz, d.bflag);
+        deriv_zz(d.grad2_2_2_chi, d.chi, d.hz, d.sz, d.bflag);
+
+    });
+
+    #else
+
+
     auto chi_xx_deriv = tfdendro::nlsmTasks.placeholder().name("chi xx deriv");
     auto chi_yy_deriv = tfdendro::nlsmTasks.placeholder().name("chi yy deriv");
     auto chi_zz_deriv = tfdendro::nlsmTasks.placeholder().name("chi zz deriv");
 
     chi_xx_deriv.data(&tfdendro::data).work([chi_xx_deriv]() {
-        std::cout << "in chi_xx_deriv" << std::endl;
+        //std::cout << "in chi_xx_deriv" << std::endl;
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_xx_deriv.data());
-        std::cout << d.grad2_0_0_chi << std::endl;
+        //std::cout << d.grad2_0_0_chi << std::endl;
         deriv_xx(d.grad2_0_0_chi, d.chi, d.hx, d.sz, d.bflag);
-        std::cout << "finished chi_xx_deriv" << std::endl;
+        //std::cout << "finished chi_xx_deriv" << std::endl;
     });
     chi_yy_deriv.data(&tfdendro::data).work([chi_yy_deriv]() {
-        std::cout << "in chi_yy_deriv" << std::endl;
+        //std::cout << "in chi_yy_deriv" << std::endl;
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_yy_deriv.data());
         deriv_yy(d.grad2_1_1_chi, d.chi, d.hy, d.sz, d.bflag);
-        std::cout << "finished chi_yy_deriv" << std::endl;
+        //std::cout << "finished chi_yy_deriv" << std::endl;
     });
     chi_zz_deriv.data(&tfdendro::data).work([chi_zz_deriv]() {
-        std::cout << "in chi_zz_deriv" << std::endl;
+        //std::cout << "in chi_zz_deriv" << std::endl;
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_zz_deriv.data());
         deriv_zz(d.grad2_2_2_chi, d.chi, d.hz, d.sz, d.bflag);
-        std::cout << "finished chi_zz_deriv" << std::endl;
+        //std::cout << "finished chi_zz_deriv" << std::endl;
     });
+
+    #endif
 
     auto phi_rhs_task = tfdendro::nlsmTasks.placeholder().name("Phi RHS");
     phi_rhs_task.data(&tfdendro::data).work([phi_rhs_task]() {
@@ -232,10 +302,47 @@ void buildNLSMRHSGraph(int mpiRank) {
             }
         }
     });
+
+
+    #if FUSED_CHI_XX_DERIV
+
+    //fused dependency
+    fused_derivative.precede(phi_rhs_task);
+
+    #else 
+
     // set up the dependencies
     chi_xx_deriv.precede(phi_rhs_task);
     chi_yy_deriv.precede(phi_rhs_task);
     chi_zz_deriv.precede(phi_rhs_task);
+
+
+    #endif
+
+
+
+    #if FUSED_CHI_X_DERIV
+
+    auto fused_chi_x_deriv = tfdendro::nlsmTasks.placeholder().name("fused x deriv");
+
+
+    fused_chi_x_deriv.data(&tfdendro::data).work([fused_chi_x_deriv](){
+
+
+
+
+        auto d = *static_cast<tfdendro::dendrotf_rhs_data *>(fused_chi_x_deriv.data());
+        if (!d.bflag){
+            deriv_x(d.grad_0_chi, d.chi, d.hx, d.sz, d.bflag);
+            deriv_y(d.grad_1_chi, d.chi, d.hy, d.sz, d.bflag);
+            deriv_z(d.grad_2_chi, d.chi, d.hz, d.sz, d.bflag);
+        } 
+
+    });
+
+
+
+    #else
 
     // derivs
     auto chi_x_deriv = tfdendro::nlsmTasks.placeholder().name("chi x deriv");
@@ -258,6 +365,31 @@ void buildNLSMRHSGraph(int mpiRank) {
         if (!d.bflag) deriv_z(d.grad_2_chi, d.chi, d.hz, d.sz, d.bflag);
     });
 
+    #endif
+
+
+    #if FUSED_PHI_X_DERIV
+
+
+    auto fused_phi_x_deriv = tfdendro::nlsmTasks.placeholder().name("fused phi deriv");
+
+    fused_phi_x_deriv.data(&tfdendro::data).work([fused_phi_x_deriv](){
+
+
+        auto d = *static_cast<tfdendro::dendrotf_rhs_data *>(fused_phi_x_deriv.data());
+        if (!d.bflag){
+
+            deriv_x(d.grad_0_phi, d.phi, d.hx, d.sz, d.bflag);
+            deriv_y(d.grad_1_phi, d.phi, d.hy, d.sz, d.bflag);
+            deriv_z(d.grad_2_phi, d.phi, d.hz, d.sz, d.bflag);
+
+        } 
+
+    });
+
+
+    #else
+
     auto phi_x_deriv = tfdendro::nlsmTasks.placeholder().name("phi x deriv");
     auto phi_y_deriv = tfdendro::nlsmTasks.placeholder().name("phi y deriv");
     auto phi_z_deriv = tfdendro::nlsmTasks.placeholder().name("phi z deriv");
@@ -277,6 +409,8 @@ void buildNLSMRHSGraph(int mpiRank) {
             *static_cast<tfdendro::dendrotf_rhs_data *>(phi_y_deriv.data());
         if (!d.bflag) deriv_z(d.grad_2_phi, d.phi, d.hz, d.sz, d.bflag);
     });
+
+    #endif
 
     auto phi_rhs_boundary =
         tfdendro::nlsmTasks.placeholder().name("phi_rhs_boundary");
@@ -299,17 +433,56 @@ void buildNLSMRHSGraph(int mpiRank) {
     });
 
     // gradient to boundary condition dependencies
+
+    #if FUSED_CHI_X_DERIV
+
+    fused_chi_x_deriv.precede(chi_rhs_boundary);
+
+    #else 
+
     chi_x_deriv.precede(chi_rhs_boundary);
     chi_y_deriv.precede(chi_rhs_boundary);
     chi_z_deriv.precede(chi_rhs_boundary);
+
+    #endif
+
+
+    #if FUSED_PHI_X_DERIV
+
+    fused_phi_x_deriv.precede(phi_rhs_boundary);
+
+    #else
+
     phi_x_deriv.precede(phi_rhs_boundary);
     phi_y_deriv.precede(phi_rhs_boundary);
     phi_z_deriv.precede(phi_rhs_boundary);
+
+    #endif
 
     // now the rhs_boundary conditions must come after what they
     // computed
     phi_rhs_task.precede(phi_rhs_boundary);
     chi_rhs_task.precede(chi_rhs_boundary);
+
+    #if FUSED_CHI_KO_DERIV
+
+    auto fused_chi_ko_deriv = tfdendro::nlsmTasks.placeholder().name("fused_chi_ko");
+
+    fused_chi_ko_deriv.data(&tfdendro::data).work([fused_chi_ko_deriv](){
+
+        auto d =
+            *static_cast<tfdendro::dendrotf_rhs_data *>(fused_chi_ko_deriv.data());
+        ko_deriv_x(d.grad_0_chi, d.chi, d.hx, d.sz, d.bflag);
+        ko_deriv_y(d.grad_1_chi, d.chi, d.hy, d.sz, d.bflag);
+        ko_deriv_z(d.grad_2_chi, d.chi, d.hz, d.sz, d.bflag);
+
+
+    });
+
+    chi_rhs_boundary.precede(fused_chi_ko_deriv);
+
+
+    #else
 
     auto chi_ko_x_deriv =
         tfdendro::nlsmTasks.placeholder().name("chi_ko_x_deriv");
@@ -318,29 +491,52 @@ void buildNLSMRHSGraph(int mpiRank) {
     auto chi_ko_z_deriv =
         tfdendro::nlsmTasks.placeholder().name("chi_ko_z_deriv");
     chi_ko_x_deriv.data(&tfdendro::data).work([chi_ko_x_deriv]() {
-        std::cout << "in chi_ko_x_deriv" << std::endl;
+        //std::cout << "in chi_ko_x_deriv" << std::endl;
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_ko_x_deriv.data());
         ko_deriv_x(d.grad_0_chi, d.chi, d.hx, d.sz, d.bflag);
-        std::cout << "finished chi_ko_x_deriv" << std::endl;
+        //std::cout << "finished chi_ko_x_deriv" << std::endl;
     });
     chi_ko_y_deriv.data(&tfdendro::data).work([chi_ko_y_deriv]() {
-        std::cout << "in chi_ko_y_deriv" << std::endl;
+        //std::cout << "in chi_ko_y_deriv" << std::endl;
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_ko_y_deriv.data());
         ko_deriv_y(d.grad_1_chi, d.chi, d.hy, d.sz, d.bflag);
-        std::cout << "finished chi_ko_y_deriv" << std::endl;
+        //std::cout << "finished chi_ko_y_deriv" << std::endl;
     });
     chi_ko_z_deriv.data(&tfdendro::data).work([chi_ko_z_deriv]() {
-        std::cout << "in chi_ko_z_deriv" << std::endl;
+        //std::cout << "in chi_ko_z_deriv" << std::endl;
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_ko_z_deriv.data());
         ko_deriv_z(d.grad_2_chi, d.chi, d.hz, d.sz, d.bflag);
-        std::cout << "finished chi_ko_z_deriv" << std::endl;
+        //std::cout << "finished chi_ko_z_deriv" << std::endl;
     });
     chi_rhs_boundary.precede(chi_ko_x_deriv);
     chi_rhs_boundary.precede(chi_ko_y_deriv);
     chi_rhs_boundary.precede(chi_ko_z_deriv);
+
+
+    #endif
+
+
+    #if FUSED_PHI_KO_DERIV
+
+
+    auto fused_phi_ko_deriv = tfdendro::nlsmTasks.placeholder().name("fused_phi_ko_deriv");
+
+    fused_phi_ko_deriv.data(&tfdendro::data).work([fused_phi_ko_deriv]() {
+        auto d =
+            *static_cast<tfdendro::dendrotf_rhs_data *>(fused_phi_ko_deriv.data());
+        ko_deriv_x(d.grad_0_phi, d.phi, d.hx, d.sz, d.bflag);
+        ko_deriv_y(d.grad_1_phi, d.phi, d.hy, d.sz, d.bflag);
+        ko_deriv_z(d.grad_2_phi, d.phi, d.hz, d.sz, d.bflag);
+
+    });
+
+    phi_rhs_boundary.precede(fused_phi_ko_deriv);
+
+    #else
+
 
     auto phi_ko_x_deriv =
         tfdendro::nlsmTasks.placeholder().name("phi_ko_x_deriv");
@@ -367,14 +563,63 @@ void buildNLSMRHSGraph(int mpiRank) {
     phi_rhs_boundary.precede(phi_ko_y_deriv);
     phi_rhs_boundary.precede(phi_ko_z_deriv);
 
+    #endif
+
     // then the KO calculation itself
     auto chi_ko_diss = tfdendro::nlsmTasks.placeholder().name("chi_ko_diss");
     chi_ko_diss.data(&tfdendro::data).work([chi_ko_diss]() {
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(chi_ko_diss.data());
         DendroRegister unsigned int pp;
+
+
+
+        //#pragma GCC unroll 4
+        #if FOREACH_LOOPS
+
+
+        auto range = std::views::iota(d.PW, d.nz - d.PW);
+        //std::vector<unsigned int> range;
+
+
+        // for (unsigned int i = d.PW; i < d.nz - d.PW; i++){
+
+        //     range.push_back(i);
+
+        // }
+
+        tfdendro::nlsmTasks.for_each(range.begin(), range.end(), [&](unsigned int k) {
+
+
+
+
+
+            for (unsigned int j = d.PW; j < d.ny - d.PW; j++) {
+
+                //#pragma GCC unroll 4
+                for (unsigned int i = d.PW; i < d.nx - d.PW; i++) {
+                    pp = i + d.nx * (j + d.ny * k);
+
+                    continue;
+
+                    d.chi_rhs[pp] +=
+                        d.sigma * (d.grad_0_chi[pp] + d.grad_1_chi[pp] +
+                                   d.grad_2_chi[pp]);
+                }
+            }
+        
+
+
+      });
+
+
+
+        #else
+
         for (unsigned int k = d.PW; k < d.nz - d.PW; k++) {
             for (unsigned int j = d.PW; j < d.ny - d.PW; j++) {
+
+                //#pragma GCC unroll 4
                 for (unsigned int i = d.PW; i < d.nx - d.PW; i++) {
                     pp = i + d.nx * (j + d.ny * k);
 
@@ -384,14 +629,21 @@ void buildNLSMRHSGraph(int mpiRank) {
                 }
             }
         }
+
+        #endif
+
     });
     auto phi_ko_diss = tfdendro::nlsmTasks.placeholder().name("phi_ko_diss");
     phi_ko_diss.data(&tfdendro::data).work([phi_ko_diss]() {
         auto d =
             *static_cast<tfdendro::dendrotf_rhs_data *>(phi_ko_diss.data());
         DendroRegister unsigned int pp;
+
+        //#pragma GCC unroll 4
         for (unsigned int k = d.PW; k < d.nz - d.PW; k++) {
             for (unsigned int j = d.PW; j < d.ny - d.PW; j++) {
+
+                //#pragma GCC unroll 4
                 for (unsigned int i = d.PW; i < d.nx - d.PW; i++) {
                     pp = i + d.nx * (j + d.ny * k);
 
@@ -403,12 +655,30 @@ void buildNLSMRHSGraph(int mpiRank) {
         }
     });
 
+
+    #if FUSED_CHI_KO_DERIV
+
+    fused_chi_ko_deriv.precede(chi_ko_diss);
+
+    #else
+
     chi_ko_x_deriv.precede(chi_ko_diss);
     chi_ko_y_deriv.precede(chi_ko_diss);
     chi_ko_z_deriv.precede(chi_ko_diss);
+
+    #endif
+
+    #if FUSED_PHI_KO_DERIV
+
+    fused_phi_ko_deriv.precede(phi_ko_diss);
+
+    #else
+
     phi_ko_x_deriv.precede(phi_ko_diss);
     phi_ko_y_deriv.precede(phi_ko_diss);
     phi_ko_z_deriv.precede(phi_ko_diss);
+
+    #endif
 
     // and that should be good?
 
@@ -443,9 +713,8 @@ void nlsmRHSTaskflowFromPrebuilt(double **unzipVarsRHS, const double **uZipVars,
     tfdendro::data.sz = (unsigned int *)sz;
     tfdendro::data.bflag = bflag;
 
-    std::cout << tfdendro::data.n << std::endl;
-    std::cout << tfdendro::data.chi << " " << &uZipVars[VAR::U_CHI][offset]
-              << std::endl;
+    //std::cout << tfdendro::data.n << std::endl;
+    //std::cout << tfdendro::data.chi << " " << &uZipVars[VAR::U_CHI][offset] << std::endl;
 
     tfdendro::data.grad_0_chi = new double[tfdendro::data.n];
     tfdendro::data.grad_1_chi = new double[tfdendro::data.n];
@@ -457,7 +726,7 @@ void nlsmRHSTaskflowFromPrebuilt(double **unzipVarsRHS, const double **uZipVars,
     tfdendro::data.grad2_1_1_chi = new double[tfdendro::data.n];
     tfdendro::data.grad2_2_2_chi = new double[tfdendro::data.n];
 
-    std::cout << tfdendro::data.grad2_0_0_chi << std::endl;
+    //std::cout << tfdendro::data.grad2_0_0_chi << std::endl;
 
     // run execution
     nlsm::timer::t_rhs.start();
@@ -522,6 +791,21 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
     nlsm::timer::t_rhs_a.stop();
     tf::Taskflow taskflow;
 
+    #if FUSED_CHI_XX_DERIV
+
+
+    auto fused_derivative = taskflow.emplace([&]() {
+
+        deriv_xx(grad2_0_0_chi, chi, hx, sz, bflag);
+        deriv_yy(grad2_1_1_chi, chi, hy, sz, bflag);
+        deriv_zz(grad2_2_2_chi, chi, hz, sz, bflag);
+
+    }).name("fused_derivative");
+
+
+    #else
+
+
     auto chi_xx_deriv =
         taskflow.emplace([&]() { deriv_xx(grad2_0_0_chi, chi, hx, sz, bflag); })
             .name("chi_xx_deriv");
@@ -531,6 +815,8 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
     auto chi_zz_deriv =
         taskflow.emplace([&]() { deriv_zz(grad2_2_2_chi, chi, hz, sz, bflag); })
             .name("chi_zz_deriv");
+
+    #endif
 
     // then set up the different variable tasks
     auto phi_rhs_task =
@@ -607,9 +893,36 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
             .name("chi_rhs_task");
 
     // set up the dependencies
+
+    #if FUSED_CHI_XX_DERIV
+
+    fused_derivative.precede(phi_rhs_task);
+
+    #else 
+
     chi_xx_deriv.precede(phi_rhs_task);
     chi_yy_deriv.precede(phi_rhs_task);
     chi_zz_deriv.precede(phi_rhs_task);
+
+    #endif
+
+
+
+    #if FUSED_CHI_X_DERIV
+
+    auto fused_chi_x_deriv = taskflow.emplace([&](){
+
+         if (!bflag){
+
+            deriv_x(grad_0_chi, chi, hx, sz, bflag);
+            deriv_y(grad_1_chi, chi, hy, sz, bflag);
+            deriv_z(grad_2_chi, chi, hz, sz, bflag);
+
+         }
+
+    }).name("fused_chi_x_deriv");
+
+    #else
 
     // NOTE: this could technically be optimized to avoid other
     // computations... NOTE: (2) additionally, these can be computed
@@ -633,6 +946,26 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
                            })
                            .name("chi_z_deriv");
 
+
+
+    #endif
+
+    #if FUSED_PHI_X_DERIV
+
+    auto fused_phi_x_deriv = taskflow.emplace([&](){
+
+         if (!bflag){
+
+            deriv_x(grad_0_phi, phi, hx, sz, bflag);
+            deriv_y(grad_1_phi, phi, hy, sz, bflag);
+            deriv_z(grad_2_phi, phi, hz, sz, bflag);
+
+        }
+
+    }).name("fused_phi_x_deriv");
+
+    #else
+
     auto phi_x_deriv = taskflow
                            .emplace([&]() {
                                if (!bflag)
@@ -652,6 +985,8 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
                            })
                            .name("phi_z_deriv");
 
+    #endif
+
     auto phi_rhs_boundary =
         taskflow
             .emplace([&]() {
@@ -670,12 +1005,32 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
             .name("chi_rhs_boundary");
 
     // gradient to boundary condition dependencies
+
+    #if FUSED_CHI_X_DERIV
+
+    fused_chi_x_deriv.precede(chi_rhs_boundary);
+
+    #else
+
     chi_x_deriv.precede(chi_rhs_boundary);
     chi_y_deriv.precede(chi_rhs_boundary);
     chi_z_deriv.precede(chi_rhs_boundary);
+
+    #endif
+
+
+
+    #if FUSED_PHI_X_DERIV
+
+    fused_phi_x_deriv.precede(phi_rhs_boundary);
+
+    #else
+
     phi_x_deriv.precede(phi_rhs_boundary);
     phi_y_deriv.precede(phi_rhs_boundary);
     phi_z_deriv.precede(phi_rhs_boundary);
+
+    #endif
 
     // now the rhs_boundary conditions must come after what they
     // computed
@@ -684,6 +1039,21 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
 
     // now we can do the KO_DISS_SIGMA
     // this must come after the boundary task finishes
+
+    #if FUSED_CHI_KO_DERIV
+
+    auto fused_chi_ko_deriv = taskflow.emplace([&]() {
+
+        ko_deriv_x(grad_0_chi, chi, hx, sz, bflag);
+        ko_deriv_y(grad_1_chi, chi, hy, sz, bflag);
+        ko_deriv_z(grad_2_chi, chi, hz, sz, bflag);
+
+    }).name("fused_chi_ko_deriv");
+
+    chi_rhs_boundary.precede(fused_chi_ko_deriv);
+
+    #else
+
     auto chi_ko_x_deriv =
         taskflow.emplace([&]() { ko_deriv_x(grad_0_chi, chi, hx, sz, bflag); })
             .name("chi_ko_x_deriv");
@@ -697,6 +1067,22 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
     chi_rhs_boundary.precede(chi_ko_y_deriv);
     chi_rhs_boundary.precede(chi_ko_z_deriv);
 
+    #endif
+
+    #if FUSED_PHI_KO_DERIV
+
+    auto fused_phi_ko_deriv = taskflow.emplace([&]() {
+
+        ko_deriv_x(grad_0_phi, phi, hx, sz, bflag);
+        ko_deriv_y(grad_1_phi, phi, hy, sz, bflag);
+        ko_deriv_z(grad_2_phi, phi, hz, sz, bflag);
+
+    }).name("fused_phi_ko_deriv");
+
+    phi_rhs_boundary.precede(fused_phi_ko_deriv);
+
+    #else
+
     auto phi_ko_x_deriv =
         taskflow.emplace([&]() { ko_deriv_x(grad_0_phi, phi, hx, sz, bflag); })
             .name("phi_ko_x_deriv");
@@ -709,6 +1095,8 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
     phi_rhs_boundary.precede(phi_ko_x_deriv);
     phi_rhs_boundary.precede(phi_ko_y_deriv);
     phi_rhs_boundary.precede(phi_ko_z_deriv);
+
+    #endif
 
     // then the KO calculation itself
     auto chi_ko_diss =
@@ -746,18 +1134,33 @@ void nlsmRHSTaskflowEntryBUILDONENTRY(double **unzipVarsRHS,
             })
             .name("phi_ko_diss");
 
+    #if FUSED_CHI_KO_DERIV
+
+    fused_chi_ko_deriv.precede(chi_ko_diss);
+
+    #else
     chi_ko_x_deriv.precede(chi_ko_diss);
     chi_ko_y_deriv.precede(chi_ko_diss);
     chi_ko_z_deriv.precede(chi_ko_diss);
+    #endif
+
+    #if FUSED_PHI_KO_DERIV
+
+    fused_phi_ko_deriv.precede(phi_ko_diss);
+
+    #else
+
     phi_ko_x_deriv.precede(phi_ko_diss);
     phi_ko_y_deriv.precede(phi_ko_diss);
     phi_ko_z_deriv.precede(phi_ko_diss);
+
+    #endif
 
     // make the executor based on the threads to use
     tf::Executor executor(tfdendro::threadsUse);
     nlsm::timer::t_rhs_a.stop();
 
-    // taskflow.dump(std::cout);
+    // taskflow.dump(//std::cout);
 
     nlsm::timer::t_rhs.start();
     executor.run(taskflow).wait();

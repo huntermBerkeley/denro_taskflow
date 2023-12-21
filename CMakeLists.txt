@@ -14,8 +14,8 @@ project(Dendro-5.0 C CXX Fortran)
 
 # the standard we're using is c++11 -- NOTE: this might change to C++17 or newer
 # in the future
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-add_definitions(-DDENDRO_CPP_17)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20")
+add_definitions(-DDENDRO_CPP_20)
 
 
 # set up fsanatize flags to check for memory leaks, need to set them for C++, X, and linker but only on debug

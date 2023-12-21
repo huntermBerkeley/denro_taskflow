@@ -39,7 +39,7 @@
             "           " : "dimentionality of the octree, (meshing is supported only for 3D)",
             "NLSM_DIM": 3,
             "           " : "maximum level of refinement of the mesh",
-            "NLSM_MAXDEPTH": 8,
+            "NLSM_MAXDEPTH": 7,
     "__comment__" : "=======================================================",
 
 
